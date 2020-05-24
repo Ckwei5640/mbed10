@@ -34,6 +34,7 @@ volatile int arrivedcount = 0;
 volatile bool closed = false;
 const char* topic = "Mbed";
 float X=0.0, Y=0.0, Z=0.0;
+float x=0.0, y=0.0, z=0.0;
 EventQueue queue(32 * EVENTS_EVENT_SIZE);
 Thread t;
 
@@ -52,7 +53,7 @@ void FXOS8700CQ_writeRegs(uint8_t * data, int len) {
 }
 
 void record(void) {
-   float x=0.0, y=0.0, z=0.0;
+   
    int16_t acc16;
    uint8_t res[6];
    FXOS8700CQ_readRegs(FXOS8700Q_OUT_X_MSB, res, 6);
@@ -104,13 +105,13 @@ void publish_message(MQTT::Client<MQTTNetwork, Countdown>* client) {
       if (acc16 > UINT14_MAX/2)
       acc16 -= UINT14_MAX;
       z = ((float)acc16) / 4096.0f;*/
-      queue.call_every(0.5,record);
+      //queue.call_every(0.5,record);
       
 
       message_num++;
       MQTT::Message message;
       char buff[100];
-      sprintf(buff, "%f, %f, %f\n", X * 1000.0, Y * 1000.0, Z * 1000.0);
+      sprintf(buff, "%f, %f, %f\n", x * 1000.0, y * 1000.0, z * 1000.0);
       message.qos = MQTT::QOS0;
       message.retained = false;
       message.dup = false;
@@ -123,6 +124,14 @@ void publish_message(MQTT::Client<MQTTNetwork, Countdown>* client) {
 
 void close_mqtt() {
       closed = true;
+}
+
+void initFXOS8700Q(void) {
+  uint8_t data[2];
+  FXOS8700CQ_readRegs( FXOS8700Q_CTRL_REG1, &data[1], 1);
+  data[1] |= 0x01;
+  data[0] = FXOS8700Q_CTRL_REG1;
+  FXOS8700CQ_writeRegs(data, 2);
 }
 
 int main() {
@@ -163,8 +172,8 @@ int main() {
             printf("Fail to subscribe\r\n");
       }
       
-      //initFXOS8700Q();
-      t.start(callback(&queue, &EventQueue::dispatch_forever));
+      initFXOS8700Q();
+      //t.start(callback(&queue, &EventQueue::dispatch_forever));
       
       mqtt_thread.start(callback(&mqtt_queue, &EventQueue::dispatch_forever));
       while(1){
